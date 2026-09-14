@@ -46,41 +46,63 @@ const out=document.getElementById('status');
 function show(message,type='warn'){out.className=type;out.textContent=message}
 function balanceOfData(account){return '0x70a08231'+account.slice(2).toLowerCase().padStart(64,'0')}
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+async function findMetaMask(){
+  const announced=[];
+  const handler=e=>announced.push(e.detail);
+  window.addEventListener('eip6963:announceProvider',handler);
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+  await sleep(700);
+  window.removeEventListener('eip6963:announceProvider',handler);
+  const modern=announced.find(x=>x&&x.info&&x.info.rdns==='io.metamask');
+  if(modern) return modern.provider;
+  const legacy=(window.ethereum&&window.ethereum.providers)||[];
+  const found=legacy.find(p=>p&&p.isMetaMask&&!p.isRabby&&!p.isBraveWallet);
+  if(found) return found;
+  if(window.ethereum&&window.ethereum.isMetaMask&&!window.ethereum.isRabby) return window.ethereum;
+  return null;
+}
 btn.onclick=async()=>{
   btn.disabled=true;
+  let stage='MetaMask bulma';
   try{
-    if(!window.ethereum) throw new Error('MetaMask bulunamadı. MetaMask eklentisini açıp sayfayı yenile.');
+    show('MetaMask seçiliyor…');
+    const provider=await findMetaMask();
+    if(!provider) throw new Error('MetaMask sağlayıcısı bulunamadı. Sayfayı MetaMask eklentisinin kurulu olduğu Chrome sekmesinde aç.');
+    stage='hesap bağlantısı';
     show('MetaMask bağlantısı bekleniyor…');
-    const accounts=await ethereum.request({method:'eth_requestAccounts'});
+    const accounts=await provider.request({method:'eth_requestAccounts'});
     const from=(accounts[0]||'').toLowerCase();
     if(from!==EXPECTED) throw new Error('Yanlış hesap seçili. MetaMask’ta 0x6Ec9…a6Dd hesabını seçip tekrar dene.');
-    let chain=await ethereum.request({method:'eth_chainId'});
+    stage='ağ kontrolü';
+    let chain=await provider.request({method:'eth_chainId'});
     if(chain!=='0x1'){
       show('Ethereum Mainnet ağına geçiliyor…');
-      await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x1'}]});
-      chain=await ethereum.request({method:'eth_chainId'});
+      await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x1'}]});
+      chain=await provider.request({method:'eth_chainId'});
       if(chain!=='0x1') throw new Error('Ethereum Mainnet seçilemedi.');
     }
     show('Cüzdan ve sözleşme kontrol ediliyor…');
-    const owned=await ethereum.request({method:'eth_call',params:[{to:CONTRACT,data:balanceOfData(from)},'latest']});
+    stage='sözleşme kontrolü';
+    const owned=await provider.request({method:'eth_call',params:[{to:CONTRACT,data:balanceOfData(from)},'latest']});
     if(BigInt(owned)>0n) throw new Error('Bu hesap daha önce mint yapmış. Yeni ve kullanılmamış bir hesap gerekli.');
     const tx={from,to:CONTRACT,value:'0x0',data:DATA};
-    await ethereum.request({method:'eth_call',params:[tx,'latest']});
-    const estimate=BigInt(await ethereum.request({method:'eth_estimateGas',params:[tx]}));
+    await provider.request({method:'eth_call',params:[tx,'latest']});
+    const estimate=BigInt(await provider.request({method:'eth_estimateGas',params:[tx]}));
     tx.gas='0x'+(estimate*120n/100n).toString(16);
     show('Hazır. MetaMask penceresinde işlemi kontrol edip onayla…');
-    const hash=await ethereum.request({method:'eth_sendTransaction',params:[tx]});
+    stage='işlem onayı';
+    const hash=await provider.request({method:'eth_sendTransaction',params:[tx]});
     show('İşlem gönderildi; Ethereum onayı bekleniyor…','warn');
     let receipt=null;
     for(let i=0;i<120&&!receipt;i++){
       await sleep(5000);
-      receipt=await ethereum.request({method:'eth_getTransactionReceipt',params:[hash]});
+      receipt=await provider.request({method:'eth_getTransactionReceipt',params:[hash]});
     }
     if(!receipt){out.className='warn';out.innerHTML='İşlem gönderildi. <a target="_blank" rel="noopener" href="https://etherscan.io/tx/'+hash+'">Etherscan’da aç</a>';return}
     if(BigInt(receipt.status)===1n){out.className='ok';out.innerHTML='Başarılı! NFT mintlendi. <a target="_blank" rel="noopener" href="https://etherscan.io/tx/'+hash+'">İşlemi görüntüle</a>'}
     else throw new Error('İşlem zincirde başarısız oldu. Gas harcanmış olabilir.');
   }catch(e){
-    const msg=e&&e.code===4001?'İşlem senin tarafından iptal edildi.':(e&&e.message?e.message:String(e));
+    const msg=e&&e.code===4001?('MetaMask isteği reddedildi ('+stage+'). MetaMask eklentisini açıp bekleyen isteği kontrol et.'):(e&&e.message?(e.message+(e.code?' [Kod: '+e.code+']':'')):String(e));
     show(msg,'bad');
     btn.disabled=false;
   }
