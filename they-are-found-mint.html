@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>They Are Found — Güvenli Mint</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0d12;--card:#121722;--line:#293142;--text:#f5f7fb;--muted:#aeb7c8;--ok:#43d17a;--warn:#ffcc66;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#17223a 0,#0a0d12 52%);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);display:grid;place-items:center;padding:24px}
+main{width:min(680px,100%);background:rgba(18,23,34,.96);border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 24px 80px #0008}
+h1{font-size:26px;margin:0 0 8px}.sub{color:var(--muted);margin:0 0 24px}.box{background:#0c111a;border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0}
+.row{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:6px 0}.label{color:var(--muted)}code{font-size:13px;word-break:break-all;color:#dce6ff}
+button{width:100%;border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:750;background:#f4f7ff;color:#0b1020;cursor:pointer;margin-top:12px}
+button:hover{background:#dfe8ff}button:disabled{opacity:.55;cursor:not-allowed}
+#status{min-height:28px;margin-top:16px;font-weight:650}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+small{display:block;color:var(--muted);margin-top:18px}.check{color:var(--ok)}
+a{color:#8cb4ff}
+</style>
+</head>
+<body>
+<main>
+<h1>They Are Found — NFT Mint</h1>
+<p class="sub">PGP public key satır sonları korunarak işlem hazırlandı.</p>
+<div class="box">
+  <div class="row"><span class="label">Ağ</span><strong>Ethereum Mainnet</strong></div>
+  <div class="row"><span class="label">Cüzdan</span><code>0x6Ec9643E1b8277acfc1263362E7C06A73286a6Dd</code></div>
+  <div class="row"><span class="label">Sözleşme</span><code>0x3286e6525A38cD1d277ECaF435b156c0cc892C29</code></div>
+  <div class="row"><span class="label">Fonksiyon</span><strong>seen(string)</strong></div>
+  <div class="row"><span class="label">Gönderilen ETH</span><strong>0 ETH</strong></div>
+  <div class="row"><span class="label">Anahtar</span><strong>700 bayt, gerçek satır sonlarıyla</strong></div>
+</div>
+<p><span class="check">✓</span> Seed veya özel anahtar istemez.<br>
+<span class="check">✓</span> Yanlış MetaMask hesabı seçilirse işlemi durdurur.<br>
+<span class="check">✓</span> Daha önce mint yapılmış hesapla işlemi durdurur.</p>
+<button id="mint">MetaMask’ta işlemi aç</button>
+<div id="status"></div>
+<small>MetaMask ekranında alıcı adresini ve <b>0 ETH</b> değerini tekrar kontrol et. Bu NFT devredilemez. İşlemi yalnızca MetaMask onayınla gönderebilir.</small>
+</main>
+<script>
+const EXPECTED='0x6ec9643e1b8277acfc1263362e7c06a73286a6dd';
+const CONTRACT='0x3286e6525a38cd1d277ecaf435b156c0cc892c29';
+const DATA='0x363355d2000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002bc2d2d2d2d2d424547494e20504750205055424c4943204b455920424c4f434b2d2d2d2d2d0a0a6d444d456171676d7942594a4b7759424241486152773842415164416e6c6351492f535835364b3347724a764f326b355a494c6e6a647241644e3870664148390a394763456c4232304257466a597a4577694c55454578594b414630574951514c5851773461523530467050754d616667764b2b3554724a39574155436171676d0a79427355674141414141414541413574595735314d6977794c6a55724d5334784d6977794c44454347774d464351576b6974674643776b4942774943496749470a46516f4a434173434242594341774543486763434634414143676b51344c7976755536796656684b34774541796478674b3163734e374555554e64565a72512f0a656c78794d57454457735559574755544e6232674d317342414e764c46487230763334506f6e58734e74455a33394a505a2f67544837387275685572494978500a626b6b41754467456171676d7942494b4b775942424147585651454641514548514134566831566b43574571616c784a714d6a41795070704b3034554c6f7a660a2f333661362b4c534754467941774549423469614242675743674243466945454331304d4f476b6564426154376a476e344c79767555367966566746416d716f0a4a73676246494141414141414241414f62574675645449734d6934314b7a45754d5449734d6977784168734d42516b467049725941416f4a454f433872376c4f0a736e315941723842414a4979417a583963612b553835614f2b76435154352b49772f722f304c3343595564346f58442f456f4275415143554177592b74534b750a3847435a4f4d58617278356c346258752b3248397a7a4e78767173723763414b44673d3d0a3d723664780a2d2d2d2d2d454e4420504750205055424c4943204b455920424c4f434b2d2d2d2d2d00000000';
+const btn=document.getElementById('mint');
+const out=document.getElementById('status');
+function show(message,type='warn'){out.className=type;out.textContent=message}
+function balanceOfData(account){return '0x70a08231'+account.slice(2).toLowerCase().padStart(64,'0')}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+btn.onclick=async()=>{
+  btn.disabled=true;
+  try{
+    if(!window.ethereum) throw new Error('MetaMask bulunamadı. MetaMask eklentisini açıp sayfayı yenile.');
+    show('MetaMask bağlantısı bekleniyor…');
+    const accounts=await ethereum.request({method:'eth_requestAccounts'});
+    const from=(accounts[0]||'').toLowerCase();
+    if(from!==EXPECTED) throw new Error('Yanlış hesap seçili. MetaMask’ta 0x6Ec9…a6Dd hesabını seçip tekrar dene.');
+    let chain=await ethereum.request({method:'eth_chainId'});
+    if(chain!=='0x1'){
+      show('Ethereum Mainnet ağına geçiliyor…');
+      await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x1'}]});
+      chain=await ethereum.request({method:'eth_chainId'});
+      if(chain!=='0x1') throw new Error('Ethereum Mainnet seçilemedi.');
+    }
+    show('Cüzdan ve sözleşme kontrol ediliyor…');
+    const owned=await ethereum.request({method:'eth_call',params:[{to:CONTRACT,data:balanceOfData(from)},'latest']});
+    if(BigInt(owned)>0n) throw new Error('Bu hesap daha önce mint yapmış. Yeni ve kullanılmamış bir hesap gerekli.');
+    const tx={from,to:CONTRACT,value:'0x0',data:DATA};
+    await ethereum.request({method:'eth_call',params:[tx,'latest']});
+    const estimate=BigInt(await ethereum.request({method:'eth_estimateGas',params:[tx]}));
+    tx.gas='0x'+(estimate*120n/100n).toString(16);
+    show('Hazır. MetaMask penceresinde işlemi kontrol edip onayla…');
+    const hash=await ethereum.request({method:'eth_sendTransaction',params:[tx]});
+    show('İşlem gönderildi; Ethereum onayı bekleniyor…','warn');
+    let receipt=null;
+    for(let i=0;i<120&&!receipt;i++){
+      await sleep(5000);
+      receipt=await ethereum.request({method:'eth_getTransactionReceipt',params:[hash]});
+    }
+    if(!receipt){out.className='warn';out.innerHTML='İşlem gönderildi. <a target="_blank" rel="noopener" href="https://etherscan.io/tx/'+hash+'">Etherscan’da aç</a>';return}
+    if(BigInt(receipt.status)===1n){out.className='ok';out.innerHTML='Başarılı! NFT mintlendi. <a target="_blank" rel="noopener" href="https://etherscan.io/tx/'+hash+'">İşlemi görüntüle</a>'}
+    else throw new Error('İşlem zincirde başarısız oldu. Gas harcanmış olabilir.');
+  }catch(e){
+    const msg=e&&e.code===4001?'İşlem senin tarafından iptal edildi.':(e&&e.message?e.message:String(e));
+    show(msg,'bad');
+    btn.disabled=false;
+  }
+};
+</script>
+</body>
+</html>
